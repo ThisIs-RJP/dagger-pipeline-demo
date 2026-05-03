@@ -1,0 +1,91 @@
+# Copy this file to .github/workflows/docker.yml in any target repository.
+#
+# What it does:
+#   pull_request  → calls `build`  (compile-check only, no push)
+#   push to branch → calls `build-and-push`:
+#       image name : <repo-name>          (the calling repo's GitHub name)
+#       image tag  : main/master → latest, all other branches → sanitized branch name
+#       pushed to  : ghcr.io/<org>/<repo-name>:<tag>
+#
+# One-time setup per target repository:
+#   1. Settings → Actions → General → Workflow permissions → "Read and write"
+#      (or keep the explicit `packages: write` permission below — either works)
+#   2. Set the PIPELINES_OWNER env var below to the GitHub user/org that owns
+#      the dagger-pipelines repository.
+#
+# To use a different registry (e.g. Docker Hub):
+#   - Replace the `registry` and `registry-username` args.
+#   - Add REGISTRY_USERNAME and REGISTRY_PASSWORD repository secrets.
+#   - Set REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }} in the env block.
+
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - staging
+      - 'release/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+env:
+  PIPELINES_OWNER: YOUR_GITHUB_ORG_OR_USER
+  DAGGER_VERSION: "0.15.3"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dagger CLI
+        run: |
+          curl -fsSL https://dl.dagger.io/dagger/install.sh \
+            | DAGGER_VERSION=${{ env.DAGGER_VERSION }} BIN_DIR=/usr/local/bin sh
+
+      - name: Build image (no push)
+        run: |
+          dagger call \
+            -m "github.com/${{ env.PIPELINES_OWNER }}/dagger-pipelines@main" \
+            build \
+            --source=. \
+            --dockerfile=Dockerfile
+
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write   # required to push to ghcr.io
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dagger CLI
+        run: |
+          curl -fsSL https://dl.dagger.io/dagger/install.sh \
+            | DAGGER_VERSION=${{ env.DAGGER_VERSION }} BIN_DIR=/usr/local/bin sh
+
+      - name: Build and push to GHCR
+        env:
+          # GITHUB_TOKEN is auto-provisioned; no secret setup needed for GHCR.
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dagger call \
+            -m "github.com/${{ env.PIPELINES_OWNER }}/dagger-pipelines@main" \
+            build-and-push \
+            --source=. \
+            --repo-name="${{ github.event.repository.name }}" \
+            --branch="${{ github.ref_name }}" \
+            --registry="ghcr.io/${{ github.repository_owner }}" \
+            --registry-username="${{ github.actor }}" \
+            --registry-password=env:REGISTRY_PASSWORD \
+            --dockerfile=Dockerfile
