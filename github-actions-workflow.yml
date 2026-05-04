@@ -17,7 +17,8 @@
 #   - Replace the `registry` and `registry-username` args.                                                                                  
 #   - Add REGISTRY_USERNAME and REGISTRY_PASSWORD repository secrets.                                                                       
 #   - Set REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }} in the env block.                                                             
-                                                                                                                                            
+
+                                                                                                                                    
 name: Docker                                                                                                                                
                                                                                                                                             
 on:                                                                                                                                         

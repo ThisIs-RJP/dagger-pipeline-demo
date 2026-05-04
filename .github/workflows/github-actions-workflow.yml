@@ -14,8 +14,8 @@ on:
   pull_request:
 
 env:
-  PIPELINES_OWNER: YOUR_GITHUB_ORG_OR_USER
-  DAGGER_VERSION: "0.15.3"
+  PIPELINES_OWNER: thisis-rjp
+  DAGGER_VERSION: "0.20.6"
 
 jobs:
   run:
@@ -25,14 +25,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Dagger CLI
-        run: |
-          curl -fsSL https://dl.dagger.io/dagger/install.sh \
-            | DAGGER_VERSION=${{ env.DAGGER_VERSION }} BIN_DIR=/usr/local/bin sh
+        run: curl -fsSL https://dl.dagger.io/dagger/install.sh | BIN_DIR=/usr/local/bin DAGGER_VERSION=${{ env.DAGGER_VERSION }} sh
 
       - name: Echo context
-        run: |
-          dagger call \
-            -m "github.com/${{ env.PIPELINES_OWNER }}/dagger-pipelines@main" \
-            echo-context \
-            --repo-name="dagger-pipeline-demo" \
-            --branch="${{ github.ref_name }}"
+        run: dagger call -m "github.com/${{ env.PIPELINES_OWNER }}/dagger-pipelines@main" echo-context --repo-name="dagger-pipeline-demo" --branch="${{ github.ref_name }}"
